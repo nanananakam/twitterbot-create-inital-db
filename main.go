@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/shogo82148/go-mecab"
 	"io"
 	"os"
+	"regexp"
 )
 
 type Tweet struct {
@@ -17,8 +19,8 @@ type Tweet struct {
 
 type Words struct {
 	gorm.Model
-	Word1 string `gorm:"index"`
-	Word2 string
+	Word1 string `gorm:"index;type:varchar(1024)"`
+	Word2 string `gorm:"type:varchar(1024)"`
 }
 
 func main() {
@@ -57,6 +59,8 @@ func main() {
 	tx := db.Begin()
 	tx2 := db2.Begin()
 
+	filterRep := regexp.MustCompile(`(RT|@[^ 　]+|http[^ 　]+|\\)`)
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -69,7 +73,9 @@ func main() {
 			Tweet:     record[1],
 		}
 		tx.Create(&tweet)
-		node, err := tagger.ParseToNode(record[1])
+		tweetString := filterRep.ReplaceAllString(record[1], "")
+		fmt.Println(tweetString)
+		node, err := tagger.ParseToNode(tweetString)
 		if err != nil {
 			panic(err)
 		}
