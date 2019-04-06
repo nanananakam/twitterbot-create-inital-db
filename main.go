@@ -60,6 +60,7 @@ func main() {
 	tx2 := db2.Begin()
 
 	filterRep := regexp.MustCompile(`(RT|@[^ 　]+|http[^ 　]+|\\)`)
+	ngRep := regexp.MustCompile(`(死ね|殺|爆破)`)
 
 	for {
 		record, err := reader.Read()
@@ -73,33 +74,36 @@ func main() {
 			Tweet:     record[1],
 		}
 		tx.Create(&tweet)
-		tweetString := filterRep.ReplaceAllString(record[1], "")
-		fmt.Println(tweetString)
-		node, err := tagger.ParseToNode(tweetString)
-		if err != nil {
-			panic(err)
-		}
-		var word1 string
-		var word2 string
-		for ; node != (mecab.Node{}); node = node.Next() {
-			if node.Surface() != "" {
-				word2 = node.Surface()
+		if !ngRep.MatchString(record[1]) {
+			tweetString := filterRep.ReplaceAllString(record[1], "")
+			fmt.Println(tweetString)
+			node, err := tagger.ParseToNode(tweetString)
+			if err != nil {
+				panic(err)
+			}
+			var word1 string
+			var word2 string
+			for ; node != (mecab.Node{}); node = node.Next() {
+				if node.Surface() != "" {
+					word2 = node.Surface()
+					words := Words{
+						Word1: word1,
+						Word2: word2,
+					}
+					tx2.Create(&words)
+					word1 = word2
+				}
+			}
+			if word1 != "" {
+				word2 = ""
 				words := Words{
 					Word1: word1,
 					Word2: word2,
 				}
 				tx2.Create(&words)
-				word1 = word2
 			}
 		}
-		if word1 != "" {
-			word2 = ""
-			words := Words{
-				Word1: word1,
-				Word2: word2,
-			}
-			tx2.Create(&words)
-		}
+
 	}
 
 	tx.Commit()
